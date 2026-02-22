@@ -42,6 +42,17 @@ jobs:
 
       - name: Merge upstream into fork
         if: steps.check.outputs.behind != '0'
+        run: git merge upstream/main --no-edit --strategy-option=ours
+
+      - name: Remove upstream workflows
+        if: steps.check.outputs.behind != '0'
         run: |
-          git merge upstream/main --no-edit --strategy-option=ours
-          git push origin main
+          find .github/workflows -type f -name '*.yml' ! -name 'sync-upstream.yml' -delete
+          if ! git diff --quiet; then
+            git add .github/workflows/
+            git commit --amend --no-edit
+          fi
+
+      - name: Push
+        if: steps.check.outputs.behind != '0'
+        run: git push origin main
