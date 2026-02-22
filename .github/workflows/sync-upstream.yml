@@ -1,0 +1,47 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    # 7:00 AM CET = 6:00 AM UTC (UTC+1 standard time)
+    # During CEST (summer, UTC+2) this fires at 8:00 AM CEST
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Sync from ruvnet/claude-flow
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/ruvnet/claude-flow.git
+
+      - name: Fetch upstream
+        run: git fetch upstream main
+
+      - name: Check for new commits
+        id: check
+        run: |
+          BEHIND=$(git rev-list --count HEAD..upstream/main)
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
+          echo "Upstream is $BEHIND commits ahead of fork"
+
+      - name: Merge upstream into fork
+        if: steps.check.outputs.behind != '0'
+        run: |
+          git merge upstream/main --no-edit --strategy-option=ours
+          git push origin main
